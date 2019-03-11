@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render,HttpResponse
 from rest_framework import generics
 from api.models import Todo
 from rest_framework.authentication import TokenAuthentication
@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from background_task import background
 from django.core import validators
 from django.contrib.auth.password_validation import validate_password
+from rest_framework.authtoken.models import Token
 
 def activate(request, uidb64, token):
     try:
@@ -31,20 +32,18 @@ def activate(request, uidb64, token):
     else:
         return HttpResponse('Activation link is invalid!')
 
-@background(schedule=10)
+@background(schedule=1)
 def sendEmailVerify(user):
     try:
-        current_site = 'http://localhost:8000/'
         mail_subject = 'Activate your account.'
         user=User.objects.get(username=user)
         message = render_to_string('acc_active_email.html', {
             'user': user,
-            'domain': current_site,
             'uid':str(urlsafe_base64_encode(force_bytes(user.pk))),
             'token':account_activation_token.make_token(user),
         })# TEMP:
         #k=Todo.objects.create(user=user,name="Firsy Task create")
-        email = EmailMessage(mail_subject, message, to=[user])
+        email = EmailMessage(mail_subject, message, to=[user.email])
         email.send(fail_silently=True)
     except Exception as e:
         print(e)
@@ -74,9 +73,9 @@ class Register(APIView):
                     return Response({"message":errors},status=status.HTTP_400_BAD_REQUEST)
                 user=User.objects.create_user(username=email,password=password1,email=email)
                 user.is_active = False
-                sendEmailVerify(user.username)
                 user.save()
-                return Response({"message":"User created","flag":True},status=status.HTTP_200_OK)
+                sendEmailVerify(user.username)
+                return Response({"message":"Activation link send to you email Verify it to continue (Do check your spam box too).","flag":True},status=status.HTTP_200_OK)
             except Exception as e:
                 print(e)
                 return Response({"message":"User already exists"+e,"flag":False}, status=status.HTTP_400_BAD_REQUEST)
@@ -85,7 +84,7 @@ class Register(APIView):
 class Login(APIView):
 
     def post(self, request):
-        name = request.data.get("username")
+        name = request.data.get("email")
         password = request.data.get("password")
         try:
             user_exists=User.objects.filter(email=name)
@@ -101,6 +100,7 @@ class Login(APIView):
             else:
                 return Response({"message":'Password Incorrect',"flag":False},status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
+            print(e)
             return Response({'message': 'Please enter a valid username and password.',"flag":False}, status=status.HTTP_401_UNAUTHORIZED)
 
 

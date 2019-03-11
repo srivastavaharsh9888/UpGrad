@@ -1,5 +1,5 @@
 {% autoescape off %}
 Hi {{ user.username }},
 Please click on the link to confirm your registration,
-http://{{ domain }}/activate/{{ uid }}/{{ token }}/
+http://localhost:8000/api/v1/activate/{{ uid }}/{{ token }}/
 {% endautoescape %}
